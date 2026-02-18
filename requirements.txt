@@ -1,0 +1,15 @@
+# LangGraph and LangChain
+langgraph>=0.2.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.20
+
+# Search Tools
+duckduckgo-search>=6.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+rich>=13.0.0
+
+# Optional: Streamlit for Web UI
+streamlit>=1.30.0
