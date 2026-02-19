@@ -10,6 +10,5 @@ duckduckgo-search>=6.0.0
 # Utilities
 python-dotenv>=1.0.0
 rich>=13.0.0
-
-# Optional: Streamlit for Web UI
-streamlit>=1.30.0
+InquirerPy>=0.3.4
+PyYAML>=6.0

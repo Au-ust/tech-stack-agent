@@ -15,17 +15,29 @@ SEARCH_KEYWORDS_PROMPT_TEMPLATE = """基于以下项目需求分析结果，请�
 
 ## 搜索目标
 我们需要调研以下方面的信息：
-1. 当前主流的前端技术栈选项
-2. 各技术栈的优缺点对比
-3. 2026年的技术趋势和最佳实践
-4. 实际应用案例（知名公司和优秀开源项目）
+1. 针对核心功能的具体库名、npm 包名（优先！）
+2. 当前主流的前端技术栈选项
+3. 各技术栈的优缺点对比
+4. 2026年的技术趋势和最佳实践
+5. 实际应用案例（知名公司和优秀开源项目）
 
 ## 任务要求
-请生成8-12个搜索关键词，涵盖：
+请生成 12-16 个搜索关键词，**必须包含**：
+
+### 第一优先级（至少 4 个）：针对核心功能的具体库/包名
+根据用户的核心需求（如瀑布流、masonry、虚拟滚动、无限滚动、图表、表单等），生成能直接找到具体 npm 包或库的搜索词，例如：
+- "React masonry library npm"
+- "Masonic React waterfall"
+- "React virtual scroll library comparison"
+- "Vue infinite scroll component 2026"
+
+### 第二优先级：通用调研
 - 框架对比（如："React vs Vue 2026"）
 - 最佳实践（如："Next.js best practices 2026"）
 - 性能优化（如："frontend performance optimization"）
 - 案例研究（如："React production case study"）
+
+**重要**：将「针对核心功能的具体库名」类关键词排在 search_keywords 数组的前面，便于优先搜索。
 
 ### 输出格式
 请严格按照以下JSON格式输出（不要包含任何其他文字）：

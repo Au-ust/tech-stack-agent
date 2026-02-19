@@ -1,16 +1,18 @@
 """
-LangGraph Node Implementations
+LangGraph Node Implementations - 表单式重构版
+实现 表单填充 -> 需求分析 -> 搜索(可选) -> 生成文档 -> 保存
 """
 import json
 from typing import Dict, Any
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
+from rich.prompt import Confirm
 
 from src.agent.state import TechStackState
 from src.utils.llm_client import get_llm_client
 from src.tools.search import get_search_tool
 from src.utils.file_manager import get_file_manager
+from src.forms.collector import collect_form, form_data_to_project_info
 from src.prompts.analyzer import (
     ANALYSIS_SYSTEM_PROMPT,
     get_analysis_prompt,
@@ -27,217 +29,99 @@ from src.prompts.generator import (
 console = Console()
 
 
-def welcome_node(state: TechStackState) -> Dict[str, Any]:
+# ===== 表单收集节点 =====
+
+def form_collect_node(state: TechStackState) -> Dict[str, Any]:
     """
-    Welcome node - greet user and explain the process.
+    表单收集节点 - 用户通过结构化表单填写需求
     """
+    console.print("\n")
     console.print(Panel.fit(
-        "[bold cyan]🚀 前端技术栈选型 Agent[/bold cyan]\n\n"
-        "我将通过引导式问答帮助您选择最合适的前端技术栈。\n\n"
-        "流程包括：\n"
-        "1. 收集项目信息\n"
-        "2. 分析技术需求\n"
-        "3. 在线调研（如需要）\n"
-        "4. 生成技术选型文档\n"
-        "5. 保存文档到本地\n",
-        title="欢迎",
-        border_style="cyan"
+        "[bold green]前端技术栈选型 Agent[/bold green]\n"
+        "[dim]请按提示填写，可回车跳过使用默认值[/dim]",
+        border_style="green"
     ))
     
+    form_data = collect_form()
+    project_info = form_data_to_project_info(form_data)
+    
     return {
-        "current_step": "welcome",
-        "messages": ["用户开始使用技术栈选型Agent"]
+        "form_data": form_data,
+        "project_type": project_info.get("project_type", "Web-C端"),
+        "team_size": project_info.get("team_size", "1人"),
+        "timeline": project_info.get("timeline", "未指定"),
+        "special_requirements": project_info.get("special_requirements", ""),
+        "current_step": "form_collect",
+        "messages": ["表单收集完成"],
     }
 
 
-def ask_project_type_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Ask for project type.
-    """
-    console.print("\n[bold yellow]问题 1/4[/bold yellow]")
-    
-    project_type = Prompt.ask(
-        "请描述您的项目类型",
-        default="Web应用",
-        choices=["Web应用", "移动应用", "桌面应用", "小程序", "混合应用", "其他"]
-    )
-    
-    return {
-        "project_type": project_type,
-        "current_step": "ask_type",
-        "messages": [f"项目类型: {project_type}"]
-    }
-
-
-def ask_team_size_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Ask for team size.
-    """
-    console.print("\n[bold yellow]问题 2/4[/bold yellow]")
-    
-    team_size = Prompt.ask(
-        "请选择您的团队规模",
-        choices=["1-3人（小型团队）", "4-10人（中型团队）", "10人以上（大型团队）"],
-        default="1-3人（小型团队）"
-    )
-    
-    return {
-        "team_size": team_size,
-        "current_step": "ask_team",
-        "messages": [f"团队规模: {team_size}"]
-    }
-
-
-def ask_timeline_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Ask for development timeline.
-    """
-    console.print("\n[bold yellow]问题 3/4[/bold yellow]")
-    
-    timeline = Prompt.ask(
-        "请选择预期的开发时间线",
-        choices=["1个月内", "1-3个月", "3-6个月", "6个月以上"],
-        default="1-3个月"
-    )
-    
-    return {
-        "timeline": timeline,
-        "current_step": "ask_timeline",
-        "messages": [f"开发时间线: {timeline}"]
-    }
-
-
-def ask_special_requirements_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Ask for special requirements.
-    """
-    console.print("\n[bold yellow]问题 4/4[/bold yellow]")
-    
-    special_requirements = Prompt.ask(
-        "请描述任何特殊需求（如SEO、高性能、实时通信等，按回车跳过）",
-        default="无特殊需求"
-    )
-    
-    return {
-        "special_requirements": special_requirements,
-        "current_step": "ask_special",
-        "messages": [f"特殊需求: {special_requirements}"]
-    }
-
+# ===== 分析节点 =====
 
 def analyze_node(state: TechStackState) -> Dict[str, Any]:
     """
-    Analyze user requirements using LLM.
+    分析节点 - 基于 form_data 进行技术需求分析
     """
-    console.print("\n[bold green]🔍 正在分析项目需求...[/bold green]")
+    console.print("\n[bold green]🔍 正在分析技术需求...[/bold green]")
     
-    # Prepare project info
-    project_info = {
-        'project_type': state.get('project_type', ''),
-        'team_size': state.get('team_size', ''),
-        'timeline': state.get('timeline', ''),
-        'special_requirements': state.get('special_requirements', ''),
-    }
+    form_data = state.get("form_data", {})
+    project_info = form_data_to_project_info(form_data)
     
-    # Get LLM client
     llm_client = get_llm_client()
     
-    # Generate analysis prompt
-    prompt = get_analysis_prompt(project_info)
-    
     try:
-        # Call LLM
+        prompt = get_analysis_prompt(project_info)
         response = llm_client.invoke(prompt, system_message=ANALYSIS_SYSTEM_PROMPT)
+        analysis_result = _parse_json_response(response)
         
-        # Parse JSON response
-        # Extract JSON from markdown code blocks if present
-        if "```json" in response:
-            json_start = response.find("```json") + 7
-            json_end = response.find("```", json_start)
-            json_str = response[json_start:json_end].strip()
-        elif "```" in response:
-            json_start = response.find("```") + 3
-            json_end = response.find("```", json_start)
-            json_str = response[json_start:json_end].strip()
-        else:
-            json_str = response.strip()
-        
-        analysis_result = json.loads(json_str)
-        
-        # Display results
-        console.print("\n[bold cyan]分析结果：[/bold cyan]")
-        console.print(f"✓ 提取了 {len(analysis_result.get('extracted_requirements', []))} 个核心需求")
-        console.print(f"✓ 识别了 {len(analysis_result.get('tech_constraints', []))} 个技术约束")
-        console.print(f"✓ 是否需要在线搜索: {'是' if analysis_result.get('needs_search', False) else '否'}")
+        console.print("✓ 分析完成")
         
         return {
-            "extracted_requirements": analysis_result.get('extracted_requirements', []),
-            "tech_constraints": analysis_result.get('tech_constraints', []),
-            "needs_search": analysis_result.get('needs_search', False),
+            "extracted_requirements": analysis_result.get("extracted_requirements", []),
+            "tech_constraints": analysis_result.get("tech_constraints", []),
+            "needs_search": analysis_result.get("needs_search", False),
             "current_step": "analyze",
-            "messages": [f"需求分析完成: {len(analysis_result.get('extracted_requirements', []))} 个需求"]
+            "messages": ["需求分析完成"],
         }
     
     except Exception as e:
-        console.print(f"[red]分析失败: {str(e)}[/red]")
-        # Fallback: no search needed
+        console.print(f"[yellow]分析遇到错误: {str(e)}[/yellow]")
         return {
             "extracted_requirements": ["基于项目类型的标准需求"],
             "tech_constraints": ["团队学习曲线"],
             "needs_search": False,
             "current_step": "analyze",
-            "messages": ["分析遇到错误，使用默认配置"]
+            "messages": ["使用默认分析"],
         }
 
 
+# ===== 搜索节点 =====
+
 def search_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Perform online search for technology information.
-    """
+    """搜索节点 - 在线技术调研"""
     console.print("\n[bold green]🌐 正在进行技术调研...[/bold green]")
     
-    # Prepare project info and analysis result
-    project_info = {
-        'project_type': state.get('project_type', ''),
-        'team_size': state.get('team_size', ''),
-        'timeline': state.get('timeline', ''),
-        'special_requirements': state.get('special_requirements', ''),
-    }
+    form_data = state.get("form_data", {})
+    project_info = form_data_to_project_info(form_data)
     
     analysis_result = {
-        'extracted_requirements': state.get('extracted_requirements', []),
-        'tech_constraints': state.get('tech_constraints', []),
+        "extracted_requirements": state.get("extracted_requirements", []),
+        "tech_constraints": state.get("tech_constraints", []),
     }
     
-    # Get LLM client and search tool
     llm_client = get_llm_client()
     search_tool = get_search_tool()
     
     try:
-        # Generate search keywords using LLM
         prompt = get_search_keywords_prompt(project_info, analysis_result)
         response = llm_client.invoke(prompt, system_message=SEARCH_SYSTEM_PROMPT)
-        
-        # Parse JSON response
-        if "```json" in response:
-            json_start = response.find("```json") + 7
-            json_end = response.find("```", json_start)
-            json_str = response[json_start:json_end].strip()
-        elif "```" in response:
-            json_start = response.find("```") + 3
-            json_end = response.find("```", json_start)
-            json_str = response[json_start:json_end].strip()
-        else:
-            json_str = response.strip()
-        
-        search_data = json.loads(json_str)
-        keywords = search_data.get('search_keywords', [])
+        search_data = _parse_json_response(response)
+        keywords = search_data.get("search_keywords", [])
         
         console.print(f"生成了 {len(keywords)} 个搜索关键词")
         
-        # Perform searches (limit to first 5 keywords to save time)
         all_results = []
-        for keyword in keywords[:5]:
+        for keyword in keywords[:8]:
             console.print(f"  搜索: {keyword}")
             results = search_tool.search(keyword, max_results=3)
             all_results.extend(results)
@@ -247,47 +131,42 @@ def search_node(state: TechStackState) -> Dict[str, Any]:
         return {
             "search_results": all_results,
             "current_step": "search",
-            "messages": [f"完成技术调研，收集了 {len(all_results)} 条信息"]
+            "messages": ["技术调研完成"],
         }
     
     except Exception as e:
-        console.print(f"[yellow]搜索遇到问题: {str(e)}，将继续使用已有知识生成文档[/yellow]")
+        console.print(f"[yellow]搜索失败: {str(e)}[/yellow]")
         return {
             "search_results": [],
             "current_step": "search",
-            "messages": ["搜索失败，使用LLM已有知识"]
+            "messages": ["搜索失败"],
         }
 
 
+# ===== 生成节点 =====
+
 def generate_node(state: TechStackState) -> Dict[str, Any]:
     """
-    Generate the complete technical document.
+    文档生成节点 - 基于 form_data + 分析结果生成技术方案文档
     """
-    console.print("\n[bold green]📝 正在生成技术选型文档...[/bold green]")
+    console.print("\n[bold green]📝 正在生成技术方案文档...[/bold green]")
     
-    # Prepare all input data
-    project_info = {
-        'project_type': state.get('project_type', ''),
-        'team_size': state.get('team_size', ''),
-        'timeline': state.get('timeline', ''),
-        'special_requirements': state.get('special_requirements', ''),
-    }
+    form_data = state.get("form_data", {})
+    project_info = form_data_to_project_info(form_data)
+    project_info["form_data"] = form_data
     
     analysis_result = {
-        'extracted_requirements': state.get('extracted_requirements', []),
-        'tech_constraints': state.get('tech_constraints', []),
+        "extracted_requirements": state.get("extracted_requirements", []),
+        "tech_constraints": state.get("tech_constraints", []),
     }
     
-    search_results = state.get('search_results', [])
+    search_results = state.get("search_results", [])
     
-    # Get LLM client
     llm_client = get_llm_client()
     
     try:
-        # Generate document prompt
         prompt = get_generation_prompt(project_info, analysis_result, search_results)
         
-        # Call LLM with streaming for better UX
         console.print("\n[dim]生成中...[/dim]")
         document_parts = []
         
@@ -301,60 +180,49 @@ def generate_node(state: TechStackState) -> Dict[str, Any]:
         return {
             "final_document": final_document,
             "current_step": "generate",
-            "messages": ["技术文档生成完成"]
+            "messages": ["技术文档生成完成"],
         }
     
     except Exception as e:
         console.print(f"[red]文档生成失败: {str(e)}[/red]")
-        # Generate a minimal fallback document
-        fallback_doc = f"""# 技术栈选型文档
-
-## 项目信息
-- 项目类型: {project_info.get('project_type', '未知')}
-- 团队规模: {project_info.get('team_size', '未知')}
-- 时间线: {project_info.get('timeline', '未知')}
-
-## 推荐技术栈
-（文档生成遇到错误，请检查API配置后重试）
-"""
+        
+        fallback_doc = _generate_fallback_document(state)
+        
         return {
             "final_document": fallback_doc,
             "current_step": "generate",
-            "messages": ["文档生成失败，生成了简化版本"]
+            "messages": ["使用降级文档"],
         }
 
 
+# ===== 保存节点 =====
+
 def save_node(state: TechStackState) -> Dict[str, Any]:
-    """
-    Save the generated document to local file.
-    """
+    """保存节点"""
     console.print("\n[bold green]💾 正在保存文档...[/bold green]")
     
-    final_document = state.get('final_document', '')
-    project_type = state.get('project_type', 'unknown')
+    final_document = state.get("final_document", "")
+    project_type = state.get("project_type", "unknown")
     
-    # Get file manager
     file_manager = get_file_manager()
     
     try:
-        # Save document
         output_path = file_manager.save_document(
             content=final_document,
-            project_name=project_type
+            project_name=project_type,
         )
         
         console.print(f"✓ 文档已保存到: [cyan]{output_path}[/cyan]")
         
-        # Show preview option
         if Confirm.ask("\n是否显示文档预览？", default=False):
-            console.print("\n" + "="*80)
+            console.print("\n" + "=" * 80)
             console.print(final_document[:500] + "...\n（仅显示前500字符）")
-            console.print("="*80)
+            console.print("=" * 80)
         
         return {
             "output_path": output_path,
             "current_step": "save",
-            "messages": [f"文档已保存: {output_path}"]
+            "messages": [f"文档已保存: {output_path}"],
         }
     
     except Exception as e:
@@ -362,5 +230,126 @@ def save_node(state: TechStackState) -> Dict[str, Any]:
         return {
             "output_path": "",
             "current_step": "save",
-            "messages": ["保存失败"]
+            "messages": ["保存失败"],
         }
+
+
+# ===== 辅助函数 =====
+
+def _parse_json_response(response: str) -> Dict[str, Any]:
+    """
+    解析 LLM 的 JSON 响应（鲁棒版本）
+    """
+    if "```json" in response:
+        json_start = response.find("```json") + 7
+        json_end = response.find("```", json_start)
+        if json_end > json_start:
+            json_str = response[json_start:json_end].strip()
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
+    
+    if "```" in response:
+        json_start = response.find("```") + 3
+        json_end = response.find("```", json_start)
+        if json_end > json_start:
+            json_str = response[json_start:json_end].strip()
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                pass
+    
+    def find_json_objects(text):
+        results = []
+        stack = []
+        start_idx = None
+        in_string = False
+        escape_next = False
+        
+        for i, char in enumerate(text):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == "\\":
+                escape_next = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                if not stack:
+                    start_idx = i
+                stack.append("{")
+            elif char == "}":
+                if stack:
+                    stack.pop()
+                    if not stack and start_idx is not None:
+                        results.append(text[start_idx : i + 1])
+                        start_idx = None
+        
+        return results
+    
+    json_objects = find_json_objects(response)
+    
+    for obj in sorted(json_objects, key=len, reverse=True):
+        try:
+            parsed = json.loads(obj)
+            if isinstance(parsed, dict) and len(parsed) > 0:
+                return parsed
+        except json.JSONDecodeError:
+            continue
+    
+    try:
+        return json.loads(response.strip())
+    except json.JSONDecodeError:
+        pass
+    
+    raise ValueError(
+        f"无法从LLM响应中提取有效JSON。\n"
+        f"响应长度: {len(response)} 字符\n"
+        f"响应前200字符: {response[:200]}\n"
+        f"响应后200字符: {response[-200:]}"
+    )
+
+
+def _generate_fallback_document(state: Dict[str, Any]) -> str:
+    """生成降级文档"""
+    form_data = state.get("form_data", {})
+    project_type = state.get("project_type", "未知")
+    team_size = state.get("team_size", "未知")
+    core_features = form_data.get("core_features", "")
+    key_features = form_data.get("key_features", "")
+    
+    return f"""# 技术方案文档
+
+## 模版声明
+
+本方案因生成过程遇到错误，采用简化版本。请检查 API 配置后重试。
+
+## ChangeLog
+
+| 版本号 | 变更人 | 变更时间 | 变更备注 |
+|--------|--------|----------|----------|
+| V 1.0 | Agent | {__import__('datetime').datetime.now().strftime('%Y-%m-%d')} | 降级文档 |
+
+## 1. 业务背景和目标
+
+### 1.1 需求背景
+
+- 项目类型: {project_type}
+- 团队规模: {team_size}
+- 核心功能: {core_features or '未填写'}
+- 关键特性: {key_features or '未填写'}
+
+## 3. 整体技术方案
+
+### 3.1 技术调研和选型
+
+（文档生成遇到错误，请重试获取完整方案）
+
+---
+生成时间: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""

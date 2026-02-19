@@ -29,6 +29,8 @@ def check_dependencies():
         "duckduckgo_search",
         "dotenv",
         "rich",
+        "InquirerPy",
+        "yaml",
     ]
     
     results = []
@@ -40,6 +42,10 @@ def check_dependencies():
                 __import__("dotenv")
             elif package == "duckduckgo_search":
                 __import__("duckduckgo_search")
+            elif package == "yaml":
+                __import__("yaml")
+            elif package == "InquirerPy":
+                __import__("InquirerPy")
             elif package == "langchain_openai":
                 __import__("langchain_openai")
             else:
@@ -92,7 +98,10 @@ def check_project_structure():
         ("src/agent/state.py", "文件"),
         ("src/tools/search.py", "文件"),
         ("src/utils/llm_client.py", "文件"),
+        ("src/utils/display.py", "文件"),
+        ("src/utils/validation.py", "文件"),
         ("src/prompts/analyzer.py", "文件"),
+        ("src/prompts/understanding.py", "文件"),
         ("src/templates/tech_doc_template.md", "文件"),
         ("outputs", "目录"),
         ("cli.py", "文件"),

@@ -1,0 +1,16 @@
+# 企业级默认值配置
+# 用户不填时，模型按此补全
+
+engineering:
+  typescript: true
+  eslint: true
+  testing: "适度"
+
+# 决策锚点（选型指南原则）
+priority:
+  - "交付速度"
+  - "SEO"
+  - "长期维护"
+  - "多人协作"
+  - "成本"
+  - "性能"

@@ -75,17 +75,16 @@
 
 ### 4. 用户界面
 
-#### CLI 版本 (`cli.py`)
+#### CLI 版本 (`cli.py`) - 激进重构完成
 - ✅ Rich 库美化终端输出
-- ✅ 引导式问答交互
+- ✅ AI 理解确认式交互（替代固定问答）
+- ✅ 自然语言自由输入
+- ✅ 20+ 维度信息收集
+- ✅ 分层展示（核心摘要+关键推测+缺失信息）
+- ✅ 用户确认和多轮修正
+- ✅ 智能追问机制（3-5个关键问题）
 - ✅ 实时进度显示
 - ✅ 友好的错误提示
-
-#### Streamlit 版本 (`app.py`)
-- ✅ Web 界面框架
-- ✅ 侧边栏项目信息表单
-- ✅ 最近文档列表展示
-- ✅ 说明和引导信息
 
 ### 5. 文档和测试
 
@@ -96,7 +95,7 @@
 - ✅ `tech_doc_template.md` - 技术文档模板
 
 #### 测试
-- ✅ `test_scenarios.py` - 三个典型场景测试
+- ⚠️ 测试文件待更新（旧版本已删除，需适配新架构）
   - 场景 1: 个人博客网站
   - 场景 2: 中型电商平台
   - 场景 3: 企业后台管理系统
@@ -128,10 +127,12 @@ tech-stack-agent/
 │   │   └── tech_doc_template.md (5,105 bytes)
 │   └── utils/          # 工具类
 │       ├── llm_client.py (4,628 bytes)
-│       └── file_manager.py (3,126 bytes)
+│       ├── file_manager.py (3,126 bytes)
+│       ├── display.py (新增) - CLI展示工具
+│       └── validation.py (新增) - 验证检测工具
 ├── outputs/            # 生成的文档目录
-├── cli.py              (2,545 bytes) - CLI 入口
-├── app.py              (4,262 bytes) - Streamlit UI
+├── backup/             # 备份目录
+├── cli.py              (重构) - CLI 入口
 ├── check_setup.py      (8,165 bytes) - 环境检查
 ├── test_scenarios.py   (8,593 bytes) - 测试脚本
 ├── README.md           (9,426 bytes)

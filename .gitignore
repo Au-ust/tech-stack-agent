@@ -37,12 +37,13 @@ ENV/
 *~
 
 # Generated outputs
-outputs/
+outputs/*.md
+!outputs/.gitkeep
 *.log
+
+# Debug files
+debug_*.txt
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Streamlit
-.streamlit/
